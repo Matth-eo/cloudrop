@@ -1,9 +1,17 @@
-<!-- BEGIN:nextjs-agent-rules -->
+# AGENTS.md
 
-# This is NOT the Next.js you know
+## Project
+Cloudrop is a learning-focused AWS file-sharing project built with Next.js and TypeScript.
 
-This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
-
-This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
-
-<!-- END:nextjs-agent-rules -->
+## Rules
+- Make small, incremental changes.
+- Do not build the entire project in one step.
+- Explain major architectural changes before implementing them.
+- Use TypeScript.
+- Use the Next.js App Router.
+- Keep components modular and readable.
+- Do not add AWS services unless explicitly requested.
+- Never expose AWS credentials or secrets in source code.
+- Do not commit `.env` files.
+- Prefer simple implementations while I am learning.
+- Run lint after meaningful changes.
