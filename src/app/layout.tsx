@@ -14,7 +14,7 @@ const spaceGrotesk = Space_Grotesk({
 
 export const metadata: Metadata = {
   title: "Cloudrop — A little less attached.",
-  description: "A simple space for temporary file sharing. Try the local file selection preview.",
+  description: "A simple space to upload your files privately. Temporary sharing is coming soon.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

@@ -31,13 +31,13 @@ export default function Home() {
 
         <p className="mt-6 flex max-w-md items-start justify-center gap-2 text-center text-xs leading-5 text-muted sm:text-sm">
           <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="mt-0.5 size-4 shrink-0"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
-          Here for a moment. Files will expire automatically once sharing is available.
+          Automatic expiration is coming later. Uploaded files do not expire yet.
         </p>
       </main>
 
       <footer id="about" className="flex flex-col items-center justify-between gap-3 border-t border-line py-6 text-center text-xs leading-5 text-muted sm:flex-row">
         <p>Made for passing things along.</p>
-        <p>Cloudrop · Frontend preview <span className="mx-2 text-[#c3c7cf]" aria-hidden="true">/</span> Files stay on your device.</p>
+        <p>Cloudrop · Early access <span className="mx-2 text-[#c3c7cf]" aria-hidden="true">/</span> Private uploads. Sharing coming soon.</p>
       </footer>
     </div>
   );
