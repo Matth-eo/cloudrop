@@ -3,6 +3,28 @@
 import { useRef, useState, type DragEvent } from "react";
 import { CloudIcon } from "./cloud-icon";
 
+const MAX_FILE_SIZE = 25 * 1024 * 1024;
+const ALLOWED_EXTENSIONS = [
+  ".pdf", ".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg", ".avif",
+  ".bmp", ".tif", ".tiff", ".heic", ".heif", ".zip",
+  ".txt", ".md", ".csv", ".rtf", ".doc", ".docx", ".odt",
+];
+
+function validateFile(file: File | null) {
+  if (!file) return "";
+  if (file.size > MAX_FILE_SIZE) {
+    return "This file is too large. Choose a file that is 25 MB or smaller.";
+  }
+
+  // Check the extension because browsers may report an empty or inconsistent MIME type.
+  const extension = file.name.slice(file.name.lastIndexOf(".")).toLowerCase();
+  if (!ALLOWED_EXTENSIONS.includes(extension)) {
+    return "This file type is not supported. Choose a PDF, image, ZIP, or text document (TXT, MD, CSV, RTF, DOC, DOCX, or ODT).";
+  }
+
+  return "";
+}
+
 function formatFileSize(bytes: number) {
   if (bytes < 1024) return `${bytes} ${bytes === 1 ? "byte" : "bytes"}`;
   const units = ["KB", "MB", "GB", "TB"];
@@ -16,6 +38,7 @@ export function FileUploader() {
   const [file, setFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [message, setMessage] = useState("");
+  const validationError = validateFile(file);
 
   function selectFile(files: FileList | null) {
     if (!files?.length) return;
@@ -61,11 +84,11 @@ export function FileUploader() {
         </div>
         <h2 className="font-heading text-xl font-medium tracking-tight">{isDragging ? "Let it drop." : "Your file’s next stop."}</h2>
         <p className="mt-2 text-sm text-muted">Drag &amp; drop a file here, or pick one below.</p>
-        <input ref={inputRef} type="file" aria-label="Choose a file" className="sr-only" tabIndex={-1} onChange={(event) => selectFile(event.target.files)} />
+        <input ref={inputRef} type="file" accept={ALLOWED_EXTENSIONS.join(",")} aria-label="Choose a file" aria-describedby="file-requirements file-error" aria-invalid={!!validationError} className="sr-only" tabIndex={-1} onChange={(event) => selectFile(event.target.files)} />
         <button type="button" onClick={() => inputRef.current?.click()} className="mt-6 rounded-xl border border-line bg-white px-5 py-2.5 text-sm font-medium shadow-sm transition-colors hover:border-[#b6c5ed] hover:bg-[#f0f4ff]">
           {file ? "Choose another file" : "Choose file"}
         </button>
-        <p className="mt-4 text-xs text-muted">Any file type · One file at a time</p>
+        <p id="file-requirements" className="mt-4 text-xs leading-5 text-muted">PDF, images, ZIP &amp; text documents · Max 25 MB · One file at a time</p>
       </div>
 
       <div className="px-2 pb-2 pt-5 sm:px-3">
@@ -87,7 +110,11 @@ export function FileUploader() {
             <div className="mb-5 flex items-center justify-between gap-3 text-xs text-muted"><span>Ready when you are</span><span>No file selected</span></div>
           )}
         </div>
-        <button type="button" disabled={!file} aria-describedby="upload-note" onClick={() => setMessage("This is a frontend preview. Your file has not been uploaded and stays on your device.")} className="flex w-full items-center justify-center gap-3 rounded-xl bg-accent py-3.5 text-sm font-medium text-white transition-colors hover:bg-[#3b5bc0] disabled:cursor-not-allowed disabled:bg-[#e9edf5] disabled:text-[#768297]">
+        <p id="file-error" role="alert" className={validationError ? "mb-4 rounded-lg bg-red-50 p-3 text-center text-xs leading-5 text-red-700" : "sr-only"}>{validationError}</p>
+        <button type="button" disabled={!file || !!validationError} aria-describedby="upload-note file-error" onClick={() => {
+          if (!file || validationError) return;
+          setMessage("This is a frontend preview. Your file has not been uploaded and stays on your device.");
+        }} className="flex w-full items-center justify-center gap-3 rounded-xl bg-accent py-3.5 text-sm font-medium text-white transition-colors hover:bg-[#3b5bc0] disabled:cursor-not-allowed disabled:bg-[#e9edf5] disabled:text-[#768297]">
           Upload file <span aria-hidden="true">↗</span>
         </button>
         <p id="upload-note" className="mt-3 text-center text-xs leading-5 text-muted">Just a preview for now. Uploads are coming later.</p>
