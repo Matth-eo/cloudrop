@@ -36,12 +36,14 @@ export async function getUploadedFile(key: string) {
   }
 }
 
-export async function createDownloadLink(key: string) {
+export async function createDownloadLink(key: string, fileExpiresAt: number) {
   const { client, bucket } = getS3Storage();
   try {
     // Do not issue a download link for a missing or unsuccessful upload.
     await client.send(new HeadObjectCommand({ Bucket: bucket, Key: key }));
-    const expiresIn = 15 * 60;
+    // Recheck after S3 responds and never sign beyond the file's metadata expiry.
+    const expiresIn = Math.min(15 * 60, Math.floor(fileExpiresAt - Date.now() / 1000));
+    if (expiresIn < 1) throw new Error("This file has expired.");
     const expiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
     const url = await getSignedUrl(client, new GetObjectCommand({
       Bucket: bucket,

@@ -4,7 +4,6 @@ import { useRef, useState, type DragEvent } from "react";
 import { CloudIcon } from "./cloud-icon";
 import { ALLOWED_EXTENSIONS, validateFile } from "@/lib/file-validation";
 import { uploadFile } from "@/lib/upload-file";
-import { ShareLink } from "./share-link";
 import { MetadataStatus } from "./metadata-status";
 
 type UploadStatus = "idle" | "preparing" | "uploading" | "success" | "error";
@@ -165,7 +164,6 @@ export function FileUploader() {
         {status === "success" && uploadedKey && (
           <div key={uploadedKey}>
             <MetadataStatus objectKey={uploadedKey} onSavingChange={setMetadataSaving} />
-            <ShareLink objectKey={uploadedKey} />
           </div>
         )}
       </div>

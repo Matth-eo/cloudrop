@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ShareLink } from "./share-link";
 
 export function MetadataStatus({ objectKey, onSavingChange }: { objectKey: string; onSavingChange: (saving: boolean) => void }) {
   const [status, setStatus] = useState<"saving" | "saved" | "error">("saving");
   const [error, setError] = useState("");
   const [attempt, setAttempt] = useState(0);
+  const [shareUrl, setShareUrl] = useState("");
 
   useEffect(() => {
     const controller = new AbortController();
@@ -20,7 +22,10 @@ export function MetadataStatus({ objectKey, onSavingChange }: { objectKey: strin
         const result = await response.json();
         if (!response.ok) throw new Error(typeof result?.error === "string" ? result.error : "Could not save file details. Please retry.");
         if (typeof result?.fileId !== "string") throw new Error("Could not confirm that file details were saved. Please retry.");
-        if (!controller.signal.aborted) setStatus("saved");
+        if (!controller.signal.aborted) {
+          setShareUrl(new URL(`/d/${encodeURIComponent(result.fileId)}`, window.location.origin).href);
+          setStatus("saved");
+        }
       } catch (error) {
         if (!controller.signal.aborted) {
           setError(error instanceof Error && error.name === "Error" ? error.message : "Your file is uploaded, but saving its details failed. Check your connection and retry.");
@@ -40,6 +45,7 @@ export function MetadataStatus({ objectKey, onSavingChange }: { objectKey: strin
         {status === "saving" ? "Saving file details…" : status === "saved" ? "File details saved." : error}
       </p>
       {status === "error" && <button type="button" onClick={() => { onSavingChange(true); setStatus("saving"); setError(""); setAttempt((value) => value + 1); }} className="mt-2 font-medium text-accent underline underline-offset-4">Retry saving details</button>}
+      {status === "saved" && shareUrl && <ShareLink url={shareUrl} />}
     </div>
   );
 }

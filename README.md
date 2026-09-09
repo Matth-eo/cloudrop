@@ -45,11 +45,11 @@ Use the exact origin (including port); add your deployed HTTPS origin when neede
 4. The browser PUTs the original File to S3 using XMLHttpRequest for progress events. The browser supplies Content-Length automatically; the code sets the signed Content-Type.
 5. Only an S3 2xx response produces success. Failures allow retry with a fresh URL. Changing or clearing the selection resets the interface; clearing it does not delete any uploaded object.
 
-There is no authentication or automatic file deletion. Uploaded objects remain until removed outside the app. The signing endpoints are unauthenticated, as requested: anyone who can access the app can request uploads, and anyone who knows an uploaded object's random key can request a new download link. File validation checks metadata, not file contents. A 60-second upload URL lifetime limits when an upload can start; it does not expire the stored object. See [AWS SDK presigner documentation](https://github.com/aws/aws-sdk-js-v3/tree/main/packages/s3-request-presigner).
+There is no authentication or automatic file deletion. Uploaded objects remain until removed outside the app. Anyone who can access the app can request uploads, and anyone holding a Cloudrop share URL can download until its metadata expires. File validation checks metadata, not file contents. A 60-second upload URL lifetime limits when an upload can start; it does not expire the stored object. See [AWS SDK presigner documentation](https://github.com/aws/aws-sdk-js-v3/tree/main/packages/s3-request-presigner).
 
 ## File metadata in DynamoDB
 
-Use a table with a **String partition key named `fileId` and no sort key**, in the same region as `AWS_REGION`. Set its name in `AWS_DYNAMODB_TABLE_NAME`. The server identity needs `dynamodb:PutItem` permission on that table, in addition to the existing S3 permissions. The app does not create the table or change its settings.
+Use a table with a **String partition key named `fileId` and no sort key**, in the same region as `AWS_REGION`. Set its name in `AWS_DYNAMODB_TABLE_NAME`. The server identity needs `dynamodb:PutItem` and `dynamodb:GetItem` permissions on that table, in addition to the existing S3 permissions. The app does not create the table or change its settings.
 
 The upload endpoint generates a UUID used for both `fileId` and the S3 key. It signs the original filename into S3 object metadata (base64url encoded to support Unicode). After S3 confirms the PUT, the browser POSTs only the key to `/api/uploads/complete`. The server reads the original name, actual size, and LastModified time from S3, validates the file, and saves:
 
@@ -63,24 +63,28 @@ The upload endpoint generates a UUID used for both `fileId` and the S3 key. It s
 | `expiresAt` | Number | Unix epoch seconds, 24 hours after upload |
 | `downloadCount` | Number | Initially `0` |
 
-The 24-hour default is `FILE_LIFETIME_SECONDS` in the completion route. This timestamp records intended expiry only: TTL cleanup is not enabled, S3 objects are not deleted, and existing 15-minute download links work as before. The download count is stored but not incremented yet.
+The 24-hour default is `FILE_LIFETIME_SECONDS` in the completion route. Cloudrop enforces this expiry on share-page visits and download requests. TTL cleanup is not enabled and S3 objects are not deleted. The download count is stored but not incremented yet.
 
-A conditional PutItem prevents retries from overwriting existing metadata or resetting downloadCount. The success card reports saving/saved/error and supports retrying only the metadata write. Sharing remains usable if saving fails. Keep the page open until details are saved; closing it between upload and completion can leave an S3 object without a DynamoDB record. There is no background reconciliation yet. Older uploads without the new S3 filename metadata are not backfilled.
+A conditional PutItem prevents retries from overwriting existing metadata or resetting downloadCount. The success card reports saving/saved/error and supports retrying only the metadata write. The Cloudrop share link appears after metadata is saved successfully. Keep the page open until details are saved; closing it between upload and completion can leave an S3 object without a DynamoDB record. There is no background reconciliation yet. Older uploads without the new S3 filename metadata are not backfilled.
 
 AWS credentials and all DynamoDB operations stay server-side. The shared AWS configuration uses the same region and credential provider chain for S3 and DynamoDB. See [AWS conditional PutItem documentation](https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_PutItem.html).
 
 ## Download flow
 
-After S3 confirms a successful upload, the UI sends the returned object key to `POST /api/downloads/presign`. This endpoint accepts only Cloudrop's UUID-based upload keys, checks that the object exists, and returns a presigned GET URL valid for up to 15 minutes (temporary AWS credentials can expire sooner). S3 code is shared through the server-only `src/lib/s3.ts` helper.
+After S3 upload and DynamoDB saving succeed, the success card displays a Cloudrop URL such as `https://your-site/d/<fileId>` with Copy and Open buttons. It uses the app's current origin; localhost links only work on the same computer, so use a deployed origin to share with others.
 
-The success card shows the link, its expiry time, Copy link, and Open link. Link failures can be retried without uploading again. A new link can also be generated after expiry. Anyone holding the link can download the file during its validity; keep it private unless intentionally sharing. Links expire, but files are not deleted. Downloads use an attachment response and open directly on S3, without passing file bytes through Next.js or changing bucket permissions. The Open link action is normal browser navigation, so it does not require adding GET to the upload CORS configuration.
+The dynamic server page reads DynamoDB with a strongly consistent GetItem. Missing, invalid, or expired files show an unavailable/expired state. Valid records show the filename, size, expiry, and a Download file button. Storage errors show a retryable unavailable state.
+
+The Download action requests `/d/<fileId>?download=1`. The server rechecks metadata expiry, verifies the S3 object, and redirects to a GET URL signed for at most 15 minutes, capped by the file's remaining lifetime. The S3 URL is not displayed as the share link, though the browser necessarily receives it during the redirect. The old `/api/downloads/presign` endpoint now returns 410 and cannot bypass metadata expiry. Downloads are attachment responses and travel directly from private S3 to the recipient. Browser navigation requires no GET addition to upload CORS settings.
+
+Anyone with the Cloudrop URL can download until metadata expiry. Expiry prevents new downloads; it does not delete S3 objects or recall downloaded copies. No authentication, Lambda, or cleanup process is added.
 
 ## Troubleshooting
 
 - **Could not prepare the upload:** check server credentials, environment variables, and whether temporary credentials have expired.
 - **S3 refused the upload:** confirm the bucket region, IAM PutObject permission, bucket policy, and matching file size/content type, then retry.
 - **Could not reach storage:** check your network and the bucket's CORS allowed origin and PUT method. Browsers can report S3 permission errors as CORS/network errors too.
-- **Download link could not be created:** confirm `s3:GetObject` permission, bucket configuration, and that the upload still exists. Retry link generation in the success card.
+- **Share page unavailable:** confirm `dynamodb:GetItem` and `s3:GetObject` permissions, table/bucket configuration, and that the record and file exist. Expired records cannot start new downloads.
 - **Could not copy automatically:** select the displayed link and copy manually; browser clipboard access requires a secure context such as HTTPS or localhost.
 
 Run `npm run lint` and `npm run build` to check the app.
