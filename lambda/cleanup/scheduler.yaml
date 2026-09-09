@@ -1,0 +1,58 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Hourly EventBridge Scheduler for an existing Cloudrop cleanup Lambda
+
+Parameters:
+  FunctionName:
+    Type: String
+    Default: cloudrop-expiration-cleanup
+
+Resources:
+  CleanupScheduleGroup:
+    Type: AWS::Scheduler::ScheduleGroup
+    Properties:
+      Name: cloudrop-cleanup
+
+  SchedulerExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: scheduler.amazonaws.com
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+              ArnEquals:
+                aws:SourceArn: !GetAtt CleanupScheduleGroup.Arn
+      Policies:
+        - PolicyName: InvokeCloudropCleanupOnly
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:${FunctionName}
+
+  CleanupSchedule:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      Name: cloudrop-expiration-cleanup-hourly
+      GroupName: !Ref CleanupScheduleGroup
+      State: ENABLED
+      ScheduleExpression: rate(1 hour)
+      FlexibleTimeWindow:
+        Mode: 'OFF'
+      Target:
+        Arn: !Sub arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:${FunctionName}
+        RoleArn: !GetAtt SchedulerExecutionRole.Arn
+        Input: '{}'
+        RetryPolicy:
+          MaximumEventAgeInSeconds: 3600
+          MaximumRetryAttempts: 2
+
+Outputs:
+  ScheduleArn:
+    Value: !GetAtt CleanupSchedule.Arn

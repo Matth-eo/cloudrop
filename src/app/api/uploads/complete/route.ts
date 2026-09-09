@@ -2,16 +2,17 @@ import { saveFileMetadata } from "@/lib/dynamodb";
 import { getFileId } from "@/lib/file-key";
 import { validateFile } from "@/lib/file-validation";
 import { getUploadedFile } from "@/lib/s3";
+import { getCurrentUser, isSameOrigin } from "@/lib/auth";
 
 export const runtime = "nodejs";
 const headers = { "Cache-Control": "no-store" };
-const FILE_LIFETIME_SECONDS = 24 * 60 * 60;
 
 export async function POST(request: Request) {
-  const origin = request.headers.get("origin");
-  if (origin && origin !== new URL(request.url).origin) {
+  if (!isSameOrigin(request)) {
     return Response.json({ error: "Metadata requests must come from this site." }, { status: 403, headers });
   }
+  const user = await getCurrentUser();
+  if (!user) return Response.json({ error: "Sign in again to save this upload." }, { status: 401, headers });
 
   let body: unknown;
   try {
@@ -27,6 +28,9 @@ export async function POST(request: Request) {
 
   try {
     const file = await getUploadedFile(body.key);
+    if (file.userId !== user.id) {
+      return Response.json({ error: "This upload does not belong to your account." }, { status: 403, headers });
+    }
     const validationError = validateFile(file);
     if (validationError) return Response.json({ error: validationError }, { status: 400, headers });
     await saveFileMetadata({
@@ -35,8 +39,9 @@ export async function POST(request: Request) {
       s3Key: body.key,
       fileSize: file.size,
       uploadedAt: file.uploadedAt.toISOString(),
-      expiresAt: Math.floor(file.uploadedAt.getTime() / 1000) + FILE_LIFETIME_SECONDS,
+      expiresAt: Math.floor(file.uploadedAt.getTime() / 1000) + file.expirationSeconds,
       downloadCount: 0,
+      userId: user.id,
     });
     return Response.json({ fileId }, { headers });
   } catch {

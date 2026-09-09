@@ -3,6 +3,8 @@ import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { validateFile } from "@/lib/file-validation";
 import { getS3Storage } from "@/lib/s3";
+import { DEFAULT_EXPIRATION_SECONDS, isExpirationSeconds } from "@/lib/expiration";
+import { getCurrentUser, isSameOrigin } from "@/lib/auth";
 
 export const runtime = "nodejs";
 
@@ -13,10 +15,11 @@ function errorResponse(error: string, status: number) {
 }
 
 export async function POST(request: Request) {
-  const origin = request.headers.get("origin");
-  if (origin && origin !== new URL(request.url).origin) {
+  if (!isSameOrigin(request)) {
     return errorResponse("Upload requests must come from this site.", 403);
   }
+  const user = await getCurrentUser();
+  if (!user) return errorResponse("Sign in to upload a file. Your session may have expired.", 401);
 
   let body: unknown;
   try {
@@ -34,6 +37,11 @@ export async function POST(request: Request) {
 
   const validationError = validateFile({ name: body.name, size: body.size });
   if (validationError) return errorResponse(validationError, 400);
+
+  const expirationSeconds = "expirationSeconds" in body ? body.expirationSeconds : DEFAULT_EXPIRATION_SECONDS;
+  if (!isExpirationSeconds(expirationSeconds)) {
+    return errorResponse("Choose an expiration of 1 hour, 24 hours, or 7 days.", 400);
+  }
 
   const contentType = body.contentType || "application/octet-stream";
   if (contentType.length > 255 || !/^[\w!#$&^.+-]+\/[\w!#$&^.+-]+$/.test(contentType)) {
@@ -58,7 +66,11 @@ export async function POST(request: Request) {
       ContentType: contentType,
       ContentLength: body.size,
       // Base64url keeps Unicode names within S3's metadata header limits.
-      Metadata: { "original-name": Buffer.from(body.name, "utf8").toString("base64url") },
+      Metadata: {
+        "original-name": Buffer.from(body.name, "utf8").toString("base64url"),
+        "expiration-seconds": String(expirationSeconds),
+        "owner-id": user.id,
+      },
       // No public ACL: objects inherit the private bucket's access controls.
     }), {
       expiresIn: 60,

@@ -1,7 +1,10 @@
 import { CloudIcon } from "@/components/cloud-icon";
 import { FileUploader } from "@/components/file-uploader";
+import { AccountNav } from "@/components/account-nav";
+import { getCurrentUser } from "@/lib/auth";
 
-export default function Home() {
+export default async function Home() {
+  const user = await getCurrentUser();
   return (
     <div className="mx-auto flex min-h-svh w-full max-w-6xl flex-col px-6 sm:px-10">
       <header className="flex items-center justify-between gap-5 py-7 sm:py-9">
@@ -11,9 +14,7 @@ export default function Home() {
           </span>
           <span className="font-heading">cloudrop<span className="text-accent">.</span></span>
         </Link>
-        <nav aria-label="Main navigation">
-          <a href="#about" className="text-sm text-muted transition-colors hover:text-foreground">About Cloudrop <span aria-hidden="true">↗</span></a>
-        </nav>
+        <AccountNav signedIn={!!user} />
       </header>
 
       <main className="flex flex-1 flex-col items-center pb-14 pt-12 sm:pb-20 sm:pt-16">
@@ -24,14 +25,22 @@ export default function Home() {
           A little less <span className="text-accent">attached.</span>
         </h1>
         <p className="mt-5 max-w-md text-center text-base leading-7 text-muted sm:text-lg">
-          Big ideas. Small files. Everything in between.<br className="hidden sm:block" /> A simpler way to share, then let go.
+          Drop a file. Choose how long it stays.<br className="hidden sm:block" /> Share a link, then get on with your day.
         </p>
 
-        <FileUploader />
+        {user ? <FileUploader /> : (
+          <section className="mt-10 w-full max-w-[580px] rounded-3xl border border-white bg-white/90 p-10 text-center shadow-[0_24px_80px_-32px_#52658d45]">
+            <CloudIcon className="mx-auto mb-5 size-10 text-accent" />
+            <h2 className="font-heading text-xl">Your files, in one place.</h2>
+            <p className="mt-3 text-sm leading-6 text-muted">Sign in to upload and find your shared files. Recipients can download without an account.</p>
+            <a href="/auth/start" className="mt-6 inline-block rounded-xl bg-accent px-7 py-3 text-sm font-medium text-white">Sign in to upload</a>
+            <p className="mt-4 text-sm text-muted">New here? <a href="/auth/start?mode=signup" className="text-accent underline underline-offset-4">Create an account</a></p>
+          </section>
+        )}
 
         <p className="mt-6 flex max-w-md items-start justify-center gap-2 text-center text-xs leading-5 text-muted sm:text-sm">
           <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="mt-0.5 size-4 shrink-0"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
-          Automatic expiration is coming later. Uploaded files do not expire yet.
+          Your link expires on your terms. No account needed to download.
         </p>
       </main>
 

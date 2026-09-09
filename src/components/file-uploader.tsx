@@ -5,6 +5,8 @@ import { CloudIcon } from "./cloud-icon";
 import { ALLOWED_EXTENSIONS, validateFile } from "@/lib/file-validation";
 import { uploadFile } from "@/lib/upload-file";
 import { MetadataStatus } from "./metadata-status";
+import { ExpirationPicker } from "./expiration-picker";
+import { DEFAULT_EXPIRATION_SECONDS } from "@/lib/expiration";
 
 type UploadStatus = "idle" | "preparing" | "uploading" | "success" | "error";
 
@@ -26,6 +28,8 @@ export function FileUploader() {
   const [progress, setProgress] = useState(0);
   const [uploadedKey, setUploadedKey] = useState<string | null>(null);
   const [metadataSaving, setMetadataSaving] = useState(false);
+  const [expirationSeconds, setExpirationSeconds] = useState<number>(DEFAULT_EXPIRATION_SECONDS);
+  const [sessionExpired, setSessionExpired] = useState(false);
   const validationError = validateFile(file);
   const isUploading = status === "preparing" || status === "uploading" || metadataSaving;
 
@@ -61,15 +65,17 @@ export function FileUploader() {
     setStatus("preparing");
     setProgress(0);
     setMessage("Preparing your upload…");
+    setSessionExpired(false);
 
     try {
       const response = await fetch("/api/uploads/presign", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
+        body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type, expirationSeconds }),
         signal: AbortSignal.timeout(30_000),
       });
       const result = await response.json();
+      if (response.status === 401) setSessionExpired(true);
       if (!response.ok) {
         throw new Error(typeof result?.error === "string" ? result.error : "Could not prepare the upload. Please try again.");
       }
@@ -96,7 +102,7 @@ export function FileUploader() {
   }
 
   return (
-    <section aria-label="File upload" aria-busy={isUploading} className="mt-10 w-full max-w-[580px] rounded-3xl border border-white bg-white/85 p-3 shadow-[0_12px_60px_-20px_#697da338] sm:mt-12 sm:p-4">
+    <section aria-label="File upload" aria-busy={isUploading} className="mt-10 w-full max-w-[580px] rounded-[28px] border border-white bg-white/90 p-3 shadow-[0_24px_80px_-32px_#52658d45,0_2px_8px_#52658d06] sm:mt-12 sm:p-4">
       <div
         onDragEnter={(event) => {
           event.preventDefault();
@@ -114,12 +120,12 @@ export function FileUploader() {
           if (dragDepth.current === 0) setIsDragging(false);
         }}
         onDrop={handleDrop}
-        className={`flex min-h-[290px] flex-col items-center justify-center rounded-2xl border border-dashed px-5 py-9 text-center transition-colors ${isDragging ? "border-accent bg-[#eaf0ff]" : "border-[#cdd7ed] bg-[#f6f8fd]/80"}`}
+        className={`flex min-h-[300px] flex-col items-center justify-center rounded-[20px] border border-dashed px-5 py-10 text-center transition-colors duration-200 ${isDragging ? "border-accent bg-[#eaf0ff]" : "border-[#cdd7ed] bg-linear-to-b from-[#f1f5fd] to-[#f9fafc]"}`}
       >
         <div className="mb-6 flex size-16 -rotate-6 items-center justify-center rounded-[20px] border border-white bg-white text-accent shadow-[0_6px_20px_#526fba12]">
           <CloudIcon className="size-8 rotate-6" />
         </div>
-        <h2 className="font-heading text-xl font-medium tracking-tight">{isDragging ? "Let it drop." : "Your file’s next stop."}</h2>
+        <h2 className="font-heading text-xl font-medium tracking-tight">{isDragging ? "Let it drop." : "Drop something worth sharing."}</h2>
         <p className="mt-2 text-sm text-muted">Drag &amp; drop a file here, or pick one below.</p>
         <input ref={inputRef} disabled={isUploading} type="file" accept={ALLOWED_EXTENSIONS.join(",")} aria-label="Choose a file" aria-describedby="file-requirements file-error" aria-invalid={!!validationError} className="sr-only" tabIndex={-1} onChange={(event) => selectFile(event.target.files)} />
         <button type="button" disabled={isUploading} onClick={() => inputRef.current?.click()} className="mt-6 rounded-xl border border-line bg-white px-5 py-2.5 text-sm font-medium shadow-sm transition-colors hover:border-[#b6c5ed] hover:bg-[#f0f4ff] disabled:cursor-not-allowed disabled:opacity-50">
@@ -128,7 +134,7 @@ export function FileUploader() {
         <p id="file-requirements" className="mt-4 text-xs leading-5 text-muted">PDF, images, ZIP &amp; text documents · Max 25 MB · One file at a time</p>
       </div>
 
-      <div className="px-2 pb-2 pt-5 sm:px-3">
+      <div className="px-2 pb-2 pt-6 sm:px-4 sm:pb-3">
         <div aria-live="polite" aria-atomic="true">
           {file ? (
             <div className="mb-5 flex min-w-0 items-center gap-3 rounded-xl border border-line p-3">
@@ -148,6 +154,7 @@ export function FileUploader() {
           )}
         </div>
         <p id="file-error" role="alert" className={validationError ? "mb-4 rounded-lg bg-red-50 p-3 text-center text-xs leading-5 text-red-700" : "sr-only"}>{validationError}</p>
+        <ExpirationPicker value={expirationSeconds} onChange={setExpirationSeconds} disabled={isUploading || status === "success"} />
         {status === "uploading" && (
           <div className="mb-4">
             <div className="mb-2 flex justify-between text-xs text-muted"><span>{progress === 100 ? "Confirming upload…" : "Uploading…"}</span><span>{progress}%</span></div>
@@ -161,6 +168,7 @@ export function FileUploader() {
         </button>
         <p id="upload-note" className="mt-3 text-center text-xs leading-5 text-muted">Private storage. Temporary links for easy sharing.</p>
         <p role="status" className={message ? `mt-3 rounded-lg p-3 text-center text-xs leading-5 ${status === "error" ? "bg-red-50 text-red-700" : status === "success" ? "bg-emerald-50 text-emerald-800" : "bg-[#f0f4ff] text-accent"}` : "sr-only"}>{message}</p>
+        {sessionExpired && <a href="/auth/start" target="_blank" rel="noopener noreferrer" className="mt-3 block text-center text-sm text-accent underline">Sign in in a new tab, then retry here</a>}
         {status === "success" && uploadedKey && (
           <div key={uploadedKey}>
             <MetadataStatus objectKey={uploadedKey} onSavingChange={setMetadataSaving} />

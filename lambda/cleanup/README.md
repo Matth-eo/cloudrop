@@ -1,5 +1,7 @@
 # Expired file cleanup
 
+For the already-working `cloudrop-expiration-cleanup` Lambda, use [the hourly EventBridge Scheduler setup](SCHEDULER.md). It targets the existing function without redeploying its code. The 15-minute SAM deployment below is the older alternative; do not enable both schedules.
+
 ## Standalone Lambda console version
 
 `index.mjs` is the standalone JavaScript ES module version. Paste its contents into an `index.mjs` file in a Node.js 22.x Lambda function and set the handler to `index.handler`. It uses the AWS SDK v3 supplied by the Lambda Node.js runtime; no TypeScript compilation or project-relative imports are needed.

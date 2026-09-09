@@ -3,6 +3,7 @@ import "server-only";
 import { GetObjectCommand, HeadObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { getAwsConfig } from "./aws-config";
+import { DEFAULT_EXPIRATION_SECONDS, isExpirationSeconds } from "./expiration";
 
 export function getS3Storage() {
   const bucket = process.env.AWS_S3_BUCKET_NAME;
@@ -26,10 +27,16 @@ export async function getUploadedFile(key: string) {
     if (!encodedName || object.ContentLength === undefined || !object.LastModified) {
       throw new Error("Uploaded file metadata is incomplete.");
     }
+    // Older uploads have no duration metadata and retain the original 24-hour default.
+    const duration = object.Metadata?.["expiration-seconds"];
+    const expirationSeconds = duration === undefined ? DEFAULT_EXPIRATION_SECONDS : Number(duration);
+    if (!isExpirationSeconds(expirationSeconds)) throw new Error("Invalid expiration metadata.");
     return {
       name: Buffer.from(encodedName, "base64url").toString("utf8"),
       size: object.ContentLength,
       uploadedAt: object.LastModified,
+      expirationSeconds,
+      userId: object.Metadata?.["owner-id"] ?? "",
     };
   } finally {
     client.destroy();

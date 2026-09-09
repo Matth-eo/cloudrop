@@ -37,3 +37,10 @@ button:not(:disabled) {
 ::selection {
   background: #dce5ff;
 }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: 0s !important;
+    animation-duration: 0s !important;
+  }
+}
