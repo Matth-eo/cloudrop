@@ -37,7 +37,7 @@ export default function Home() {
 
       <footer id="about" className="flex flex-col items-center justify-between gap-3 border-t border-line py-6 text-center text-xs leading-5 text-muted sm:flex-row">
         <p>Made for passing things along.</p>
-        <p>Cloudrop · Early access <span className="mx-2 text-[#c3c7cf]" aria-hidden="true">/</span> Private uploads. Sharing coming soon.</p>
+        <p>Cloudrop · Early access <span className="mx-2 text-[#c3c7cf]" aria-hidden="true">/</span> Private uploads. Temporary sharing.</p>
       </footer>
     </div>
   );

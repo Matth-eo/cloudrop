@@ -12,6 +12,7 @@ Keep these values in the git-ignored `.env.local` file (never prefix them with `
 - `AWS_S3_BUCKET_NAME`: your private bucket name.
 - `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`: server credentials.
 - `AWS_SESSION_TOKEN`: also required if using temporary credentials.
+- `AWS_DYNAMODB_TABLE_NAME`: the metadata table in the same `AWS_REGION`.
 
 Restart the development server after changing environment variables. The SDK resolves credentials on the server; the browser has no AWS SDK or credential configuration. Standard presigned URLs necessarily contain the signing access-key identifier, but never the secret access key. Do not log or share the generated upload URLs.
 
@@ -19,7 +20,7 @@ Restart the development server after changing environment variables. The SDK res
 
 Keep S3 Block Public Access enabled (all four settings), use Bucket owner enforced object ownership, and do not add a public bucket policy or public-read ACL. This app does not change bucket permissions or add ACLs.
 
-The server's IAM identity needs `s3:PutObject` on `arn:aws:s3:::YOUR_BUCKET_NAME/uploads/*`. A bucket using a customer-managed KMS key may also require that key's encryption permissions. No read, list, or delete permission is needed for this upload flow.
+The server's IAM identity needs `s3:PutObject` and `s3:GetObject` on `arn:aws:s3:::YOUR_BUCKET_NAME/uploads/*`. GetObject permission is also used by the HeadObject existence check before generating a download link. A bucket using a customer-managed KMS key may also require that key's encryption/decryption permissions. No list or delete permission is needed.
 
 In the S3 console, under **Permissions ? Cross-origin resource sharing (CORS)**, allow the local app's origin to PUT files:
 
@@ -44,12 +45,42 @@ Use the exact origin (including port); add your deployed HTTPS origin when neede
 4. The browser PUTs the original File to S3 using XMLHttpRequest for progress events. The browser supplies Content-Length automatically; the code sets the signed Content-Type.
 5. Only an S3 2xx response produces success. Failures allow retry with a fresh URL. Changing or clearing the selection resets the interface; clearing it does not delete any uploaded object.
 
-There are no public download links, authentication, database, or automatic expiration. Uploaded objects remain until removed outside the app. The signing endpoint is unauthenticated, as requested, so anyone who can access it can request uploads. File validation checks metadata, not file contents. A 60-second URL lifetime limits when an upload can start; it does not expire the stored object. See [AWS SDK presigner documentation](https://github.com/aws/aws-sdk-js-v3/tree/main/packages/s3-request-presigner).
+There is no authentication or automatic file deletion. Uploaded objects remain until removed outside the app. The signing endpoints are unauthenticated, as requested: anyone who can access the app can request uploads, and anyone who knows an uploaded object's random key can request a new download link. File validation checks metadata, not file contents. A 60-second upload URL lifetime limits when an upload can start; it does not expire the stored object. See [AWS SDK presigner documentation](https://github.com/aws/aws-sdk-js-v3/tree/main/packages/s3-request-presigner).
+
+## File metadata in DynamoDB
+
+Use a table with a **String partition key named `fileId` and no sort key**, in the same region as `AWS_REGION`. Set its name in `AWS_DYNAMODB_TABLE_NAME`. The server identity needs `dynamodb:PutItem` permission on that table, in addition to the existing S3 permissions. The app does not create the table or change its settings.
+
+The upload endpoint generates a UUID used for both `fileId` and the S3 key. It signs the original filename into S3 object metadata (base64url encoded to support Unicode). After S3 confirms the PUT, the browser POSTs only the key to `/api/uploads/complete`. The server reads the original name, actual size, and LastModified time from S3, validates the file, and saves:
+
+| Attribute | Type | Value |
+| --- | --- | --- |
+| `fileId` | String | Server-generated UUID from the object key |
+| `originalFileName` | String | Original filename, including its extension |
+| `s3Key` | String | `uploads/<fileId>.<extension>` |
+| `fileSize` | Number | S3 object size in bytes |
+| `uploadedAt` | String | S3 LastModified as an ISO 8601 UTC timestamp |
+| `expiresAt` | Number | Unix epoch seconds, 24 hours after upload |
+| `downloadCount` | Number | Initially `0` |
+
+The 24-hour default is `FILE_LIFETIME_SECONDS` in the completion route. This timestamp records intended expiry only: TTL cleanup is not enabled, S3 objects are not deleted, and existing 15-minute download links work as before. The download count is stored but not incremented yet.
+
+A conditional PutItem prevents retries from overwriting existing metadata or resetting downloadCount. The success card reports saving/saved/error and supports retrying only the metadata write. Sharing remains usable if saving fails. Keep the page open until details are saved; closing it between upload and completion can leave an S3 object without a DynamoDB record. There is no background reconciliation yet. Older uploads without the new S3 filename metadata are not backfilled.
+
+AWS credentials and all DynamoDB operations stay server-side. The shared AWS configuration uses the same region and credential provider chain for S3 and DynamoDB. See [AWS conditional PutItem documentation](https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_PutItem.html).
+
+## Download flow
+
+After S3 confirms a successful upload, the UI sends the returned object key to `POST /api/downloads/presign`. This endpoint accepts only Cloudrop's UUID-based upload keys, checks that the object exists, and returns a presigned GET URL valid for up to 15 minutes (temporary AWS credentials can expire sooner). S3 code is shared through the server-only `src/lib/s3.ts` helper.
+
+The success card shows the link, its expiry time, Copy link, and Open link. Link failures can be retried without uploading again. A new link can also be generated after expiry. Anyone holding the link can download the file during its validity; keep it private unless intentionally sharing. Links expire, but files are not deleted. Downloads use an attachment response and open directly on S3, without passing file bytes through Next.js or changing bucket permissions. The Open link action is normal browser navigation, so it does not require adding GET to the upload CORS configuration.
 
 ## Troubleshooting
 
 - **Could not prepare the upload:** check server credentials, environment variables, and whether temporary credentials have expired.
 - **S3 refused the upload:** confirm the bucket region, IAM PutObject permission, bucket policy, and matching file size/content type, then retry.
 - **Could not reach storage:** check your network and the bucket's CORS allowed origin and PUT method. Browsers can report S3 permission errors as CORS/network errors too.
+- **Download link could not be created:** confirm `s3:GetObject` permission, bucket configuration, and that the upload still exists. Retry link generation in the success card.
+- **Could not copy automatically:** select the displayed link and copy manually; browser clipboard access requires a secure context such as HTTPS or localhost.
 
 Run `npm run lint` and `npm run build` to check the app.

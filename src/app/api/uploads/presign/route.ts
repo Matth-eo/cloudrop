@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
-import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { validateFile } from "@/lib/file-validation";
+import { getS3Storage } from "@/lib/s3";
 
 export const runtime = "nodejs";
 
@@ -45,14 +46,10 @@ export async function POST(request: Request) {
     return errorResponse("Storage is not configured. Set AWS_REGION and AWS_S3_BUCKET_NAME on the server.", 503);
   }
 
-  // Only this server route loads AWS credentials through the SDK's provider chain.
-  const client = new S3Client({
-    region,
-    // The browser sends the real file later, so do not checksum an empty body here.
-    requestChecksumCalculation: "WHEN_REQUIRED",
-  });
+  const { client } = getS3Storage();
   const extension = body.name.slice(body.name.lastIndexOf(".")).toLowerCase();
-  const key = `uploads/${randomUUID()}${extension}`;
+  const fileId = randomUUID();
+  const key = `uploads/${fileId}${extension}`;
 
   try {
     const url = await getSignedUrl(client, new PutObjectCommand({
@@ -60,13 +57,15 @@ export async function POST(request: Request) {
       Key: key,
       ContentType: contentType,
       ContentLength: body.size,
+      // Base64url keeps Unicode names within S3's metadata header limits.
+      Metadata: { "original-name": Buffer.from(body.name, "utf8").toString("base64url") },
       // No public ACL: objects inherit the private bucket's access controls.
     }), {
       expiresIn: 60,
       signableHeaders: new Set(["content-type", "content-length"]),
     });
 
-    return Response.json({ url, contentType }, { headers: RESPONSE_HEADERS });
+    return Response.json({ url, contentType, key, fileId }, { headers: RESPONSE_HEADERS });
   } catch {
     // Never return or log credentials, signed URLs, or raw SDK errors.
     return errorResponse("Could not prepare the upload. Check the server’s AWS credentials and storage configuration, then try again.", 503);

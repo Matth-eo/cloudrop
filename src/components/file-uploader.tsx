@@ -4,6 +4,8 @@ import { useRef, useState, type DragEvent } from "react";
 import { CloudIcon } from "./cloud-icon";
 import { ALLOWED_EXTENSIONS, validateFile } from "@/lib/file-validation";
 import { uploadFile } from "@/lib/upload-file";
+import { ShareLink } from "./share-link";
+import { MetadataStatus } from "./metadata-status";
 
 type UploadStatus = "idle" | "preparing" | "uploading" | "success" | "error";
 
@@ -23,12 +25,15 @@ export function FileUploader() {
   const [message, setMessage] = useState("");
   const [status, setStatus] = useState<UploadStatus>("idle");
   const [progress, setProgress] = useState(0);
+  const [uploadedKey, setUploadedKey] = useState<string | null>(null);
+  const [metadataSaving, setMetadataSaving] = useState(false);
   const validationError = validateFile(file);
-  const isUploading = status === "preparing" || status === "uploading";
+  const isUploading = status === "preparing" || status === "uploading" || metadataSaving;
 
   function selectFile(files: FileList | null) {
-    if (uploadInFlight.current || !files?.length) return;
+    if (uploadInFlight.current || metadataSaving || !files?.length) return;
     setFile(files[0]);
+    setUploadedKey(null);
     setStatus("idle");
     setProgress(0);
     setMessage(files.length > 1 ? "One file at a time for now. The first file is selected." : "");
@@ -42,8 +47,9 @@ export function FileUploader() {
   }
 
   function removeFile() {
-    if (uploadInFlight.current) return;
+    if (uploadInFlight.current || metadataSaving) return;
     setFile(null);
+    setUploadedKey(null);
     setStatus("idle");
     setProgress(0);
     setMessage("");
@@ -68,7 +74,7 @@ export function FileUploader() {
       if (!response.ok) {
         throw new Error(typeof result?.error === "string" ? result.error : "Could not prepare the upload. Please try again.");
       }
-      if (typeof result?.url !== "string" || typeof result?.contentType !== "string") {
+      if (typeof result?.url !== "string" || typeof result?.contentType !== "string" || typeof result?.key !== "string") {
         throw new Error("The server returned an invalid upload link. Please try again.");
       }
 
@@ -77,7 +83,9 @@ export function FileUploader() {
       await uploadFile(result.url, file, result.contentType, setProgress);
       setProgress(100);
       setStatus("success");
-      setMessage("Upload complete. Your file is stored privately. Sharing and automatic expiration are not available yet.");
+      setMetadataSaving(true);
+      setUploadedKey(result.key);
+      setMessage("Upload complete. Your file is stored privately.");
     } catch (error) {
       setStatus("error");
       setMessage(error instanceof Error && error.name === "Error"
@@ -93,7 +101,7 @@ export function FileUploader() {
       <div
         onDragEnter={(event) => {
           event.preventDefault();
-          if (uploadInFlight.current) return;
+          if (uploadInFlight.current || metadataSaving) return;
           dragDepth.current += 1;
           setIsDragging(true);
         }}
@@ -152,8 +160,14 @@ export function FileUploader() {
         <button type="button" disabled={!file || !!validationError || isUploading || status === "success"} aria-describedby="upload-note file-error" onClick={handleUpload} className="flex w-full items-center justify-center gap-3 rounded-xl bg-accent py-3.5 text-sm font-medium text-white transition-colors hover:bg-[#3b5bc0] disabled:cursor-not-allowed disabled:bg-[#e9edf5] disabled:text-[#768297]">
           {status === "preparing" ? "Preparing…" : status === "uploading" ? "Uploading…" : status === "success" ? "Uploaded ✓" : status === "error" ? "Try upload again ↗" : "Upload file ↗"}
         </button>
-        <p id="upload-note" className="mt-3 text-center text-xs leading-5 text-muted">Upload to private storage. Sharing links are coming later.</p>
+        <p id="upload-note" className="mt-3 text-center text-xs leading-5 text-muted">Private storage. Temporary links for easy sharing.</p>
         <p role="status" className={message ? `mt-3 rounded-lg p-3 text-center text-xs leading-5 ${status === "error" ? "bg-red-50 text-red-700" : status === "success" ? "bg-emerald-50 text-emerald-800" : "bg-[#f0f4ff] text-accent"}` : "sr-only"}>{message}</p>
+        {status === "success" && uploadedKey && (
+          <div key={uploadedKey}>
+            <MetadataStatus objectKey={uploadedKey} onSavingChange={setMetadataSaving} />
+            <ShareLink objectKey={uploadedKey} />
+          </div>
+        )}
       </div>
     </section>
   );
