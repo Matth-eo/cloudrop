@@ -1,5 +1,7 @@
 # Cloudrop
 
+Scheduled expiration cleanup is available in [lambda/cleanup](lambda/cleanup/README.md). Build and deploy its separate SAM stack to enable the 15-minute schedule. It deletes expired S3 files before deleting their DynamoDB records; no automatic cleanup runs until that stack is deployed.
+
 A learning-focused Next.js App Router project with private S3 uploads. The browser selects and validates a file, requests a short-lived upload URL, then sends the file directly to S3.
 
 ## Local development
@@ -45,7 +47,7 @@ Use the exact origin (including port); add your deployed HTTPS origin when neede
 4. The browser PUTs the original File to S3 using XMLHttpRequest for progress events. The browser supplies Content-Length automatically; the code sets the signed Content-Type.
 5. Only an S3 2xx response produces success. Failures allow retry with a fresh URL. Changing or clearing the selection resets the interface; clearing it does not delete any uploaded object.
 
-There is no authentication or automatic file deletion. Uploaded objects remain until removed outside the app. Anyone who can access the app can request uploads, and anyone holding a Cloudrop share URL can download until its metadata expires. File validation checks metadata, not file contents. A 60-second upload URL lifetime limits when an upload can start; it does not expire the stored object. See [AWS SDK presigner documentation](https://github.com/aws/aws-sdk-js-v3/tree/main/packages/s3-request-presigner).
+There is no authentication. The separate cleanup Lambda deletes expired objects after its stack is deployed. Anyone who can access the app can request uploads, and anyone holding a Cloudrop share URL can download until its metadata expires. File validation checks metadata, not file contents. A 60-second upload URL lifetime limits when an upload can start; it does not expire the stored object. See [AWS SDK presigner documentation](https://github.com/aws/aws-sdk-js-v3/tree/main/packages/s3-request-presigner).
 
 ## File metadata in DynamoDB
 
@@ -63,7 +65,7 @@ The upload endpoint generates a UUID used for both `fileId` and the S3 key. It s
 | `expiresAt` | Number | Unix epoch seconds, 24 hours after upload |
 | `downloadCount` | Number | Initially `0` |
 
-The 24-hour default is `FILE_LIFETIME_SECONDS` in the completion route. Cloudrop enforces this expiry on share-page visits and download requests. TTL cleanup is not enabled and S3 objects are not deleted. The download count is stored but not incremented yet.
+The 24-hour default is `FILE_LIFETIME_SECONDS` in the completion route. Cloudrop enforces this expiry on share-page visits and download requests. Keep DynamoDB TTL disabled so the scheduled Lambda can delete S3 data before metadata. The download count is stored but not incremented yet.
 
 A conditional PutItem prevents retries from overwriting existing metadata or resetting downloadCount. The success card reports saving/saved/error and supports retrying only the metadata write. The Cloudrop share link appears after metadata is saved successfully. Keep the page open until details are saved; closing it between upload and completion can leave an S3 object without a DynamoDB record. There is no background reconciliation yet. Older uploads without the new S3 filename metadata are not backfilled.
 
@@ -77,7 +79,7 @@ The dynamic server page reads DynamoDB with a strongly consistent GetItem. Missi
 
 The Download action requests `/d/<fileId>?download=1`. The server rechecks metadata expiry, verifies the S3 object, and redirects to a GET URL signed for at most 15 minutes, capped by the file's remaining lifetime. The S3 URL is not displayed as the share link, though the browser necessarily receives it during the redirect. The old `/api/downloads/presign` endpoint now returns 410 and cannot bypass metadata expiry. Downloads are attachment responses and travel directly from private S3 to the recipient. Browser navigation requires no GET addition to upload CORS settings.
 
-Anyone with the Cloudrop URL can download until metadata expiry. Expiry prevents new downloads; it does not delete S3 objects or recall downloaded copies. No authentication, Lambda, or cleanup process is added.
+Anyone with the Cloudrop URL can download until metadata expiry. Expiry immediately prevents new downloads; the separately deployed cleanup Lambda removes expired objects on its schedule. Downloaded copies cannot be recalled. No authentication is added.
 
 ## Troubleshooting
 

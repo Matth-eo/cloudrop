@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "build:cleanup": "esbuild lambda/cleanup/index.ts --bundle --platform=node --target=node22 --format=cjs --outfile=.build/cleanup/index.js"
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.1128.0",
@@ -22,6 +23,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "babel-plugin-react-compiler": "1.0.0",
+    "esbuild": "^0.28.2",
     "eslint": "^9",
     "eslint-config-next": "16.3.4",
     "tailwindcss": "^4",
