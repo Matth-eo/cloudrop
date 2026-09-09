@@ -43,7 +43,7 @@ export function MetadataStatus({ objectKey, onSavingChange }: { objectKey: strin
 
   return (
     <div className="mt-3 text-center text-xs leading-5">
-      <p role="status" className={status === "error" ? "text-red-700" : "text-muted"}>
+      <p role="status" className={status === "saved" ? "sr-only" : status === "error" ? "text-red-700" : "text-muted"}>
         {status === "saving" ? "Saving file details…" : status === "saved" ? "File details saved." : error}
       </p>
       {status === "error" && <button type="button" onClick={() => { onSavingChange(true); setStatus("saving"); setError(""); setAttempt((value) => value + 1); }} className="mt-2 font-medium text-accent underline underline-offset-4">Retry saving details</button>}

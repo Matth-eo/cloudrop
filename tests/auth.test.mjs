@@ -174,3 +174,28 @@ test("configuration rejects the documented client secret placeholder", () => {
     env.COGNITO_CLIENT_SECRET = previous;
   }
 });
+
+test("sign-out accepts privacy-restricted same-origin forms but rejects cross-site requests", async () => {
+  const { auth } = authSetup();
+  const logout = load("../src/app/auth/logout/route.ts", name => ({ "next/server": { NextResponse }, "@/lib/auth": auth })[name], { console: { error() {} } });
+  for (const origin of [undefined, "null"]) {
+    const headers = { "Sec-Fetch-Site": "same-origin", ...(origin ? { Origin: origin } : {}) };
+    const response = await logout.POST(new Request(`${env.APP_URL}/auth/logout`, { method: "POST", headers }));
+    assert.equal(response.status, 303);
+    assert.equal(response.cookies.get(auth.authCookieName("session")).maxAge, 0);
+    assert.equal(response.cookies.get(auth.authCookieName("flow")).maxAge, 0);
+    assert.equal(new URL(response.headers.get("location")).searchParams.get("logout_uri"), `${env.APP_URL}/`);
+  }
+  for (const headers of [
+    { Origin: "null" },
+    { Origin: "null", "Sec-Fetch-Site": "cross-site" },
+    { Origin: "null", "Sec-Fetch-Site": "same-site" },
+    { Origin: "https://other.invalid", "Sec-Fetch-Site": "same-origin" },
+  ]) {
+    const response = await logout.POST(new Request(`${env.APP_URL}/auth/logout`, { method: "POST", headers }));
+    assert.equal(response.status, 403);
+    assert.equal(response.headers.get("set-cookie"), null);
+  }
+  const wrongHost = await logout.POST(new Request("https://other.invalid/auth/logout", { method: "POST", headers: { Origin: "null", "Sec-Fetch-Site": "same-origin" } }));
+  assert.equal(wrongHost.status, 403);
+});

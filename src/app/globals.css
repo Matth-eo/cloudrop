@@ -1,24 +1,50 @@
 @import "tailwindcss";
 
 :root {
-  --background: #fafbf9;
-  --foreground: #252e3c;
+  --background: #f5f4f0;
+  --foreground: #242725;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --color-accent: #4b6ddb;
-  --color-muted: #697382;
-  --color-line: #e4e7ed;
+  --color-accent: #36594e;
+  --color-muted: #717570;
+  --color-line: #dedfd8;
   --font-sans: var(--font-dm-sans);
   --font-heading: var(--font-space-grotesk);
 }
 
 body {
-  background: radial-gradient(ellipse at 50% 43%, #eaf0ff80, transparent 52%), var(--background);
+  background: var(--background);
   color: var(--foreground);
   font-family: var(--font-dm-sans), sans-serif;
+  text-rendering: optimizeLegibility;
+}
+
+.utility-surface {
+  border: 1px solid #ffffff;
+  background: #ffffffed;
+  box-shadow: 0 24px 70px -30px #3b4d722b, 0 2px 8px #34436205;
+}
+
+.primary-action {
+  background: var(--color-accent);
+  color: white;
+  box-shadow: none;
+  transition: background-color 160ms ease, box-shadow 160ms ease;
+}
+
+.primary-action:hover:not(:disabled) {
+  background: #29473e;
+  box-shadow: 0 3px 10px #29473e18;
+}
+
+.primary-action:disabled {
+  cursor: not-allowed;
+  background: #eef0f5;
+  color: #737e90;
+  box-shadow: none;
 }
 
 button, a, input {
@@ -30,12 +56,12 @@ button:not(:disabled) {
 }
 
 :focus-visible {
-  outline: 3px solid #4b6ddb;
+  outline: 2px solid #36594e;
   outline-offset: 5px;
 }
 
 ::selection {
-  background: #dce5ff;
+  background: #dce7df;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -43,4 +69,75 @@ button:not(:disabled) {
     transition-duration: 0s !important;
     animation-duration: 0s !important;
   }
+}
+
+/* One quiet surface groups the upload canvas and its controls. */
+.site-shell { width: min(100%, 1360px); min-height: 100svh; margin-inline: auto; padding-inline: clamp(24px, 5vw, 80px); display: flex; flex-direction: column; }
+.site-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 20px; padding-block: 28px; }
+.account-nav { display: flex; align-items: center; gap: 20px; font-size: 12px; }
+.account-link { display: inline-flex; min-height: 44px; align-items: center; color: var(--foreground); transition: color 160ms; }
+.account-link:hover { color: #36594e; text-decoration: underline; text-underline-offset: 5px; }
+.account-secondary { color: #717570; }
+.sharing-layout { flex: 1; display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); align-items: start; gap: clamp(40px, 6vw, 96px); padding-block: clamp(54px, 8vw, 112px) 80px; }
+.sharing-intro { padding-top: 32px; }
+.eyebrow { font-size: 10px; line-height: 1.6; font-weight: 500; letter-spacing: .16em; text-transform: uppercase; color: #717570; }
+.sharing-title { margin-top: 28px; font-family: var(--font-space-grotesk), sans-serif; font-size: clamp(52px, 6.3vw, 88px); line-height: .98; font-weight: 500; letter-spacing: -.075em; }
+.sharing-description { max-width: 310px; margin-top: 30px; font-size: 15px; line-height: 1.9; color: #717570; }
+.sharing-aside { margin-top: 64px; font-size: 11px; line-height: 1.9; color: #717570; }
+.sharing-workspace, .upload-workspace { min-width: 0; width: 100%; }
+.upload-workspace {
+  padding: 12px;
+  border: 1px solid #e1e4dc;
+  border-radius: 16px;
+  background: #fdfdfb;
+  box-shadow: 0 16px 48px -28px #27372a30;
+}
+.upload-workspace .text-muted,
+.upload-workspace .expiration-option { color: #5e665f; }
+.drop-surface { position: relative; display: flex; min-height: 360px; align-items: center; justify-content: center; flex-direction: column; padding: 40px 24px 32px; text-align: center; background: #f0f3ed; border-radius: 8px; transition: background-color 200ms, box-shadow 200ms; }
+.drop-surface::before, .drop-surface::after { content: ''; position: absolute; width: 20px; height: 20px; pointer-events: none; border-color: #b8c6bc; }
+.drop-surface::before { top: 14px; left: 14px; border-top-width: 1px; border-left-width: 1px; }
+.drop-surface::after { right: 14px; bottom: 14px; border-right-width: 1px; border-bottom-width: 1px; }
+.drop-surface.is-dragging { background: #e7eee6; box-shadow: inset 0 0 0 1px #36594e; }
+.drop-symbol { margin-bottom: 24px; color: #36594e; transition: transform 200ms; }
+.is-dragging .drop-symbol { transform: translateY(4px); }
+.choose-file { min-height: 44px; margin-top: 22px; padding: 8px 22px; border-radius: 6px; background: #edf0e9; font-size: 13px; font-weight: 500; transition: background-color 160ms; }
+.choose-file:hover:not(:disabled) { background: #e2e7dd; }
+.choose-file:disabled { cursor: not-allowed; opacity: .5; }
+.upload-controls { padding: 26px 16px 16px; }
+.expiration-picker { position: relative; margin-bottom: 26px; padding-top: 10px; }
+.expiration-picker legend { float: left; display: flex; min-height: 44px; align-items: center; margin-right: 16px; }
+.expiration-options { display: flex; justify-content: flex-end; gap: 18px; }
+.expiration-option { display: block; min-height: 44px; padding: 12px 0 8px; border-bottom: 2px solid transparent; font-size: 13px; color: #717570; transition: color 160ms, border-color 160ms; }
+.expiration-options input:checked + span { border-bottom-color: #36594e; color: #242725; font-weight: 600; }
+.expiration-picker > p { clear: both; }
+.share-result { margin-top: 28px; padding-top: 28px; border-top: 1px solid #dedfd8; text-align: left; }
+.share-url { width: 100%; min-width: 0; min-height: 52px; padding: 12px 0; border-bottom: 1px solid #bac7bb; border-radius: 0; background: transparent; font-size: 13px; color: #36594e; }
+.signin-surface { display: flex; align-items: flex-start; flex-direction: column; padding: 48px 40px; background: #fdfdfb; border-radius: 6px; box-shadow: 0 22px 40px -34px #27372a45; }
+.site-footer { display: flex; justify-content: space-between; gap: 16px; padding-block: 24px; color: #717570; font-size: 10px; }
+.uploads-library { width: 100%; max-width: 880px; margin-inline: auto; padding-block: 70px 100px; }
+@media (max-width: 900px) {
+  .sharing-layout { grid-template-columns: minmax(0, 1fr); gap: 40px; max-width: 580px; width: 100%; margin-inline: auto; padding-top: 32px; }
+  .sharing-intro { padding-top: 0; }
+  .sharing-title { font-size: clamp(52px, 10vw, 76px); }
+  .sharing-description { max-width: 380px; margin-top: 20px; }
+  .sharing-aside { display: none; }
+  .sharing-layout { padding-bottom: 48px; }
+}
+@media (max-width: 480px) {
+  .site-shell { padding-inline: 22px; }
+  .site-header { padding-block: 18px; gap: 8px; }
+  .account-nav { gap: 14px; font-size: 11px; }
+  .sharing-title { margin-top: 20px; }
+  .sharing-description { font-size: 14px; }
+  .drop-surface { min-height: 330px; padding-inline: 20px; }
+  .upload-workspace { padding: 8px; border-radius: 14px; }
+  .upload-controls { padding: 22px 8px 12px; }
+  .expiration-picker legend { float: none; min-height: 28px; }
+  .expiration-options { justify-content: space-between; }
+  .expiration-options { gap: 16px; }
+  .expiration-picker legend { margin-right: 10px; }
+  .signin-surface { padding: 36px 24px; }
+  .site-footer { flex-direction: column; gap: 6px; }
+  .uploads-library { padding-top: 42px; }
 }

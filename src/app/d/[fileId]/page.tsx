@@ -45,17 +45,17 @@ export default async function DownloadPage({ params, searchParams }: {
   return (
     <main className="mx-auto flex min-h-svh w-full max-w-[620px] flex-col items-center justify-center px-6 py-16">
       <Link href="/" className="mb-8 flex items-center gap-2 font-heading text-xl font-semibold">
-        <span className="rounded-xl bg-accent p-2 text-white"><CloudIcon className="size-6" /></span>cloudrop.
+        <span className="p-2 text-accent"><CloudIcon className="size-6" /></span>cloudrop.
       </Link>
-      <section className="w-full rounded-3xl border border-white bg-white/85 p-7 text-center shadow-[0_12px_60px_-20px_#697da338] sm:p-10">
-        <h1 className="font-heading text-2xl font-medium tracking-tight">{file ? "A file for you." : title}</h1>
+      <section className="w-full border-y border-line px-2 py-12 text-center sm:px-8 sm:py-16">
+        <h1 className="font-heading text-4xl font-medium tracking-[-0.06em] sm:text-5xl">{file ? "A file for you." : title}</h1>
         {file ? (
           <>
-            <p className="mt-5 break-words text-base font-medium">{file.originalFileName}</p>
+            <p className="mt-7 [overflow-wrap:anywhere] text-base font-medium">{file.originalFileName}</p>
             <p className="mt-2 text-sm text-muted">{file.fileSize.toLocaleString("en-US")} bytes</p>
             <form action={`/d/${fileId}`} method="get" className="mt-6">
               <input type="hidden" name="download" value="1" />
-              <button type="submit" className="w-full rounded-xl bg-accent px-5 py-3.5 text-sm font-medium text-white hover:bg-[#3b5bc0]">Download file ↗</button>
+              <button type="submit" className="primary-action min-h-12 w-full rounded-lg px-5 py-3.5 text-sm font-medium">Download file ↗</button>
             </form>
             <p className="mt-4 text-xs leading-5 text-muted">Available until {new Date(file.expiresAt * 1000).toISOString().replace("T", " ").replace(".000Z", " UTC")}. Stored privately, shared by link.</p>
           </>

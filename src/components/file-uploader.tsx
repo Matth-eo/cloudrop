@@ -102,7 +102,7 @@ export function FileUploader() {
   }
 
   return (
-    <section aria-label="File upload" aria-busy={isUploading} className="mt-10 w-full max-w-[580px] rounded-[28px] border border-white bg-white/90 p-3 shadow-[0_24px_80px_-32px_#52658d45,0_2px_8px_#52658d06] sm:mt-12 sm:p-4">
+    <section aria-label="File upload" aria-busy={isUploading} className="upload-workspace">
       <div
         onDragEnter={(event) => {
           event.preventDefault();
@@ -120,37 +120,37 @@ export function FileUploader() {
           if (dragDepth.current === 0) setIsDragging(false);
         }}
         onDrop={handleDrop}
-        className={`flex min-h-[300px] flex-col items-center justify-center rounded-[20px] border border-dashed px-5 py-10 text-center transition-colors duration-200 ${isDragging ? "border-accent bg-[#eaf0ff]" : "border-[#cdd7ed] bg-linear-to-b from-[#f1f5fd] to-[#f9fafc]"}`}
+        className={`drop-surface ${isDragging ? "is-dragging" : ""}`}
       >
-        <div className="mb-6 flex size-16 -rotate-6 items-center justify-center rounded-[20px] border border-white bg-white text-accent shadow-[0_6px_20px_#526fba12]">
-          <CloudIcon className="size-8 rotate-6" />
+        <div className="drop-symbol" aria-hidden="true">
+          <CloudIcon className="size-12" />
         </div>
-        <h2 className="font-heading text-xl font-medium tracking-tight">{isDragging ? "Let it drop." : "Drop something worth sharing."}</h2>
-        <p className="mt-2 text-sm text-muted">Drag &amp; drop a file here, or pick one below.</p>
+        <h2 className="font-heading text-[clamp(2.1rem,4vw,3.25rem)] leading-[1.05] font-medium tracking-[-0.055em]">{isDragging ? "Let it drop." : "Drop it here."}</h2>
+        <p className="mt-4 text-sm text-muted">Drag &amp; drop a file here, or pick one below.</p>
         <input ref={inputRef} disabled={isUploading} type="file" accept={ALLOWED_EXTENSIONS.join(",")} aria-label="Choose a file" aria-describedby="file-requirements file-error" aria-invalid={!!validationError} className="sr-only" tabIndex={-1} onChange={(event) => selectFile(event.target.files)} />
-        <button type="button" disabled={isUploading} onClick={() => inputRef.current?.click()} className="mt-6 rounded-xl border border-line bg-white px-5 py-2.5 text-sm font-medium shadow-sm transition-colors hover:border-[#b6c5ed] hover:bg-[#f0f4ff] disabled:cursor-not-allowed disabled:opacity-50">
+        <button type="button" disabled={isUploading} onClick={() => inputRef.current?.click()} className="choose-file">
           {file ? "Choose another file" : "Choose file"}
         </button>
-        <p id="file-requirements" className="mt-4 text-xs leading-5 text-muted">PDF, images, ZIP &amp; text documents · Max 25 MB · One file at a time</p>
+        <p id="file-requirements" className="mt-7 max-w-xs text-[11px] leading-5 text-muted">PDF, images, ZIP &amp; text documents · Max 25 MB · One file at a time</p>
       </div>
 
-      <div className="px-2 pb-2 pt-6 sm:px-4 sm:pb-3">
+      <div className="upload-controls">
         <div aria-live="polite" aria-atomic="true">
           {file ? (
-            <div className="mb-5 flex min-w-0 items-center gap-3 rounded-xl border border-line p-3">
-              <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-[#f0f4ff] text-accent">
+            <div className="mb-6 flex min-w-0 items-center gap-3 border-b border-line pb-5">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-[#e9eee7] text-accent">
                 <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="size-5"><path d="M14 3H6v18h12V7l-4-4Z" /><path d="M14 3v5h4M9 12h6m-6 4h6" /></svg>
               </span>
               <div className="min-w-0 flex-1 text-left">
                 <p className="truncate text-sm font-medium" title={file.name}>{file.name}</p>
                 <p className="mt-0.5 text-xs text-muted">{formatFileSize(file.size)} · {status === "success" ? "Uploaded" : "Selected locally"}</p>
               </div>
-              <button type="button" disabled={isUploading} aria-label="Clear file selection" onClick={removeFile} className="flex size-9 shrink-0 items-center justify-center rounded-lg text-muted hover:bg-[#f0f4ff] hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50">
+              <button type="button" disabled={isUploading} aria-label="Clear file selection" onClick={removeFile} className="flex size-11 shrink-0 items-center justify-center rounded-lg text-muted hover:bg-[#e9eee7] hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50">
                 <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="size-4"><path d="m6 6 12 12M18 6 6 18" /></svg>
               </button>
             </div>
           ) : (
-            <div className="mb-5 flex items-center justify-between gap-3 text-xs text-muted"><span>Ready when you are</span><span>No file selected</span></div>
+            <div className="mb-6 flex items-center justify-between gap-3 text-[11px] text-muted"><span>Ready when you are</span><span>No file selected</span></div>
           )}
         </div>
         <p id="file-error" role="alert" className={validationError ? "mb-4 rounded-lg bg-red-50 p-3 text-center text-xs leading-5 text-red-700" : "sr-only"}>{validationError}</p>
@@ -158,16 +158,16 @@ export function FileUploader() {
         {status === "uploading" && (
           <div className="mb-4">
             <div className="mb-2 flex justify-between text-xs text-muted"><span>{progress === 100 ? "Confirming upload…" : "Uploading…"}</span><span>{progress}%</span></div>
-            <div role="progressbar" aria-label="File upload progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress} className="h-1.5 overflow-hidden rounded-full bg-[#e9edf5]">
+            <div role="progressbar" aria-label="File upload progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress} className="h-1.5 overflow-hidden rounded-full bg-[#e3e8e0]">
               <div className="h-full rounded-full bg-accent transition-[width]" style={{ width: `${progress}%` }} />
             </div>
           </div>
         )}
-        <button type="button" disabled={!file || !!validationError || isUploading || status === "success"} aria-describedby="upload-note file-error" onClick={handleUpload} className="flex w-full items-center justify-center gap-3 rounded-xl bg-accent py-3.5 text-sm font-medium text-white transition-colors hover:bg-[#3b5bc0] disabled:cursor-not-allowed disabled:bg-[#e9edf5] disabled:text-[#768297]">
+        <button type="button" disabled={!file || !!validationError || isUploading || status === "success"} aria-describedby="upload-note file-error" onClick={handleUpload} className="primary-action flex min-h-13 w-full items-center justify-center gap-3 rounded-lg py-3.5 text-sm font-medium">
           {status === "preparing" ? "Preparing…" : status === "uploading" ? "Uploading…" : status === "success" ? "Uploaded ✓" : status === "error" ? "Try upload again ↗" : "Upload file ↗"}
         </button>
         <p id="upload-note" className="mt-3 text-center text-xs leading-5 text-muted">Private storage. Temporary links for easy sharing.</p>
-        <p role="status" className={message ? `mt-3 rounded-lg p-3 text-center text-xs leading-5 ${status === "error" ? "bg-red-50 text-red-700" : status === "success" ? "bg-emerald-50 text-emerald-800" : "bg-[#f0f4ff] text-accent"}` : "sr-only"}>{message}</p>
+        <p role="status" className={message ? `mt-3 rounded-lg p-3 text-center text-xs leading-5 ${status === "error" ? "bg-red-50 text-red-700" : status === "success" ? "text-emerald-800" : "bg-[#e9eee7] text-accent"}` : "sr-only"}>{message}</p>
         {sessionExpired && <a href="/auth/start" target="_blank" rel="noopener noreferrer" className="mt-3 block text-center text-sm text-accent underline">Sign in in a new tab, then retry here</a>}
         {status === "success" && uploadedKey && (
           <div key={uploadedKey}>
